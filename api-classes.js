@@ -238,7 +238,6 @@ class User {
 				token: this.loginToken
 			}
 		})
-		console.log("Story deleted")
 	}
 }
 // ********************************************************************************

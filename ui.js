@@ -12,6 +12,7 @@ $(async function() {
 	const $navLinks = $('#nav-links');
 	const $homePage = $('#nav-all');
 	const $myArticles = $('#my-articles');
+	const faves = [];
 
 	// global storyList variable
 	let storyList = null;
@@ -46,7 +47,6 @@ $(async function() {
 		$('#profile-account-date').text(`Account Created: ${userInstance.createdAt}`);
 		// *********************************************
 	});
-
 	/**
    * Event listener for signing up.
    *  If successfully we will setup a new user instance
@@ -94,7 +94,7 @@ $(async function() {
    * Event Handler for clicking Hack or Snooze
    */
 
-	$homePage.on('click', function() {
+	$homePage.on('click', async function() {
 		// Show the Login and Create Account Forms
 		$loginForm.slideToggle();
 		$createAccountForm.slideToggle();
@@ -113,24 +113,31 @@ $(async function() {
 			if (target.classList.contains('favorite')) {
 				await currentUser.removeFavorite(storyId);
 				target.classList.remove('favorite');
+				faves.splice(faves.indexOf(storyId),1);
 			} else {
 				await currentUser.addFavorite(storyId);
 				target.classList.add('favorite');
+				faves.push(storyId);
 			}
-		}
+    }
 	});
 
 	/**
    * Event Handler for remove user story
    */
 
-	$('.fa-trash').on('click', async function(e) {
-		if (await currentUser) {
+	$myArticles.on('click', '.trash-can', async function(e) {
+		if (currentUser) {
 			const target = e.target;
 			const closestLi = target.closest('li');
 			const storyId = closestLi.getAttribute('id');
+			console.log(storyId);
 
-			await deleteUserStory(storyId);
+			await currentUser.deleteUserStory(storyId);
+			await generateStories();
+			hideElements();
+			renderUserStories();
+			console.log('Story Removed');
 		}
 	});
 	// *********************************************
@@ -144,13 +151,17 @@ $(async function() {
 
 	$('#nav-favorites').on('click', function() {
 		renderFavorites();
+		$submitForm.hide();
 		$allStoriesList.hide();
 		$favoritedArticles.show();
+		$myArticles.hide();
 	});
 
 	$('#nav-stories').on('click', function() {
 		renderUserStories();
+		$submitForm.hide();
 		$allStoriesList.hide();
+		$favoritedArticles.hide();
 		$myArticles.show();
 	});
 	// *********************************************
@@ -175,10 +186,10 @@ $(async function() {
 		});
 
 		// render story markup
+
 		const storyMarkup = $(`
         <li id="${storyObject.storyId}">
-        <span><i class="fas fa-star"></i></span>
-        <span><i class="fas fa-trash"></i></span>
+        <span class="star"><i class="fas fa-star"></i></span>
           <a class="article-link" href="${storyObject.url}" target="a_blank">
             <strong>${storyObject.title}</strong>
           </a>
@@ -192,6 +203,7 @@ $(async function() {
 
 		$submitForm.hide();
 		$submitForm.trigger('reset');
+		renderUserStories();
 	});
 	// *********************************************
 
@@ -203,6 +215,8 @@ $(async function() {
 		hideElements();
 		await generateStories();
 		$allStoriesList.show();
+		$favoritedArticles.hide();
+		$myArticles.hide();
 	});
 
 	/**
@@ -270,13 +284,20 @@ $(async function() {
    * A function to render HTML for an individual Story instance
    */
 
-	function generateStoryHTML(story) {
-		let hostName = getHostName(story.url);
+	function generateStoryHTML(story, isUserStory) {
+    let hostName = getHostName(story.url);
+    let favorite = "";
+    for (let i = 0; i < faves.length; i++) {
+      if (story.storyId === faves[i]) {
+        favorite = "favorite";
+      }
+    }
 
-		// render story markup
-		const storyMarkup = $(`
+		if (isUserStory) {
+			const storyMarkup = $(`
       <li id="${story.storyId}">
-      <span><i class="fas fa-trash"></i></span>
+      <span class="star"><i class="fas fa-star ${favorite}"></i></span>
+      <span class="trash-can"><i class="fas fa-trash"></i></span>
         <a class="article-link" href="${story.url}" target="a_blank">
           <strong>${story.title}</strong>
         </a>
@@ -285,14 +306,29 @@ $(async function() {
         <small class="article-username">posted by ${story.username}</small>
       </li>
     `);
-
-		return storyMarkup;
+			// render story markup
+			return storyMarkup;
+		} else {
+			const storyMarkup = $(`
+        <li id="${story.storyId}">
+        <span><i class="fas fa-star ${favorite}"></i></span>
+          <a class="article-link" href="${story.url}" target="a_blank">
+            <strong>${story.title}</strong>
+          </a>
+          <small class="article-author">by ${story.author}</small>
+          <small class="article-hostname ${hostName}">(${hostName})</small>
+          <small class="article-username">posted by ${story.username}</small>
+        </li>
+      `);
+			// render story markup
+			return storyMarkup;
+		}
 	}
-	// *********************************************
+
 	async function renderFavorites() {
 		$favoritedArticles.empty();
 		if (currentUser.favorites.length === 0) {
-			$favoritedArticles.text('Uh ohhh... No stories added yet.');
+			$favoritedArticles.text('Uh ohhh... no favorites added yet.');
 		} else {
 			for (let story of currentUser.favorites) {
 				// render each story in the list
@@ -305,28 +341,24 @@ $(async function() {
 	async function renderUserStories() {
 		$myArticles.empty();
 		if ((await currentUser.ownStories.length) === 0) {
-			$myArticles.text('Uh ohhh... No stories added yet.');
+			$myArticles.text('Uh ohhh... no stories added yet.');
 		} else {
 			for (let story of currentUser.ownStories) {
 				// render each story in the list
-				let favoriteHTML = await generateStoryHTML(story);
+				let favoriteHTML = await generateStoryHTML(story, true);
 				$myArticles.append(favoriteHTML);
 			}
 		}
 	}
-	// *********************************************
-	// Add logic to check if story is favorite or user story
 
-	async function isFavorite(story) {
-		await currentUser;
-		let favorites = currentUser.favorites;
-		for (let i = 0; i < favorites.length; i++) {
-			if (story === favorites[i]) {
-			}
+	function isFavorite(story) {
+		let favStoryIds = new Set();
+		if (currentUser) {
+			favStoryIds = new Set(currentUser.favorites.map((obj) => obj.storyId));
 		}
+		return favStoryIds.has(story.storyId);
 	}
-	// *********************************************
-	// *********************************************
+
 	/* hide all elements in elementsArr */
 
 	function hideElements() {
@@ -345,18 +377,7 @@ $(async function() {
 		$navLogin.hide();
 		$navLogOut.show();
 		$navLinks.show();
-		// $('.fa-star').show();
 	}
-	// *********************************************
-	// function isFavorite(story) {
-	// 	let faveStoryIds = new Set();
-	// 	if (currentUser) {
-	// 		favStoryIds = new Set(currentUser.favorites.map((obj) => obj.storyId));
-	// 	}
-	// 	return favStoryIds.has(story.storyId);
-	// }
-	// *********************************************
-	/* simple function to pull the hostname from a URL */
 
 	function getHostName(url) {
 		let hostName;
