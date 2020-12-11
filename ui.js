@@ -22,6 +22,7 @@ $(async function() {
 	let currentUser = null;
 
 	await checkIfLoggedIn();
+	renderUserInfo();
 
 	/**
    * Event listener for logging in.
@@ -41,12 +42,7 @@ $(async function() {
 		currentUser = userInstance;
 		syncCurrentUserToLocalStorage();
 		loginAndSubmitForm();
-		// *********************************************
-		// Append user data to Profile Info
-		$('#profile-name').text(`Name: ${userInstance.name}`);
-		$('#profile-username').text(`Username: ${userInstance.username}`);
-		$('#profile-account-date').text(`Account Created: ${userInstance.createdAt}`);
-		// *********************************************
+		renderUserInfo();
 	});
 	/**
    * Event listener for signing up.
@@ -114,14 +110,14 @@ $(async function() {
 			if (target.classList.contains('favorite')) {
 				await currentUser.removeFavorite(storyId);
 				target.classList.remove('favorite');
-				faves.splice(faves.indexOf(storyId),1);
+				faves.splice(faves.indexOf(storyId), 1);
 			} else {
 				await currentUser.addFavorite(storyId);
 				target.classList.add('favorite');
 				faves.push(storyId);
 			}
-	}
-	renderFavorites();
+		}
+		renderFavorites();
 	});
 
 	/**
@@ -133,13 +129,11 @@ $(async function() {
 			const target = e.target;
 			const closestLi = target.closest('li');
 			const storyId = closestLi.getAttribute('id');
-			console.log(storyId);
 
+			closestLi.remove();			
 			await currentUser.deleteUserStory(storyId);
-			await generateStories();
-			hideElements();
-			renderUserStories();
-			console.log('Story Removed');
+			currentUser.ownStories.splice(currentUser.ownStories.indexOf(storyId), 1);
+			$myArticles.show();
 		}
 	});
 	// *********************************************
@@ -287,13 +281,13 @@ $(async function() {
    */
 
 	function generateStoryHTML(story, isUserStory) {
-    let hostName = getHostName(story.url);
-    let favorite = "";
-    for (let i = 0; i < faves.length; i++) {
-      if (story.storyId === faves[i]) {
-        favorite = "favorite";
-      }
-    }
+		let hostName = getHostName(story.url);
+		let favorite = '';
+		for (let i = 0; i < faves.length; i++) {
+			if (story.storyId === faves[i]) {
+				favorite = 'favorite';
+			}
+		}
 
 		if (isUserStory) {
 			const storyMarkup = $(`
@@ -342,7 +336,7 @@ $(async function() {
 
 	async function renderUserStories() {
 		$myArticles.empty();
-		if ((await currentUser.ownStories.length) === 0) {
+		if (currentUser.ownStories.length === 0) {
 			$myArticles.text('Uh ohhh... no stories added yet.');
 		} else {
 			for (let story of currentUser.ownStories) {
@@ -353,12 +347,10 @@ $(async function() {
 		}
 	}
 
-	function isFavorite(story) {
-		let favStoryIds = new Set();
-		if (currentUser) {
-			favStoryIds = new Set(currentUser.favorites.map((obj) => obj.storyId));
-		}
-		return favStoryIds.has(story.storyId);
+	async function renderUserInfo() {
+		$('#profile-name').text(`Name: ${currentUser.name}`);
+		$('#profile-username').text(`Username: ${currentUser.username}`);
+		$('#profile-account-date').text(`Account Created: ${currentUser.createdAt}`);
 	}
 
 	/* hide all elements in elementsArr */
