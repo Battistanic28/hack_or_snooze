@@ -6,6 +6,7 @@ $(async function() {
 	const $favoritedArticles = $('#favorited-articles');
 	const $loginForm = $('#login-form');
 	const $createAccountForm = $('#create-account-form');
+	const $articlesContainer = $('.articles-container');
 	const $ownStories = $('#my-articles');
 	const $navLogin = $('#nav-login');
 	const $navLogOut = $('#nav-logout');
@@ -104,7 +105,7 @@ $(async function() {
 	/**
    * Event Handler for Favorites
    */
-	$('.fa-star').on('click', async function(e) {
+	$articlesContainer.on('click', '.star', async function(e) {
 		if (currentUser) {
 			const target = e.target;
 			const closestLi = target.closest('li');
@@ -119,7 +120,8 @@ $(async function() {
 				target.classList.add('favorite');
 				faves.push(storyId);
 			}
-    }
+	}
+	renderFavorites();
 	});
 
 	/**
@@ -311,7 +313,7 @@ $(async function() {
 		} else {
 			const storyMarkup = $(`
         <li id="${story.storyId}">
-        <span><i class="fas fa-star ${favorite}"></i></span>
+        <span class="star"><i class="fas fa-star ${favorite}"></i></span>
           <a class="article-link" href="${story.url}" target="a_blank">
             <strong>${story.title}</strong>
           </a>
